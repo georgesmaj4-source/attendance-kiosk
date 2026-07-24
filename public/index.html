@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Attendance Kiosk</title>
+  <link rel="stylesheet" href="/style.css" />
+  <script defer src="/vendor/face-api.js"></script>
+  <script defer src="/face.js"></script>
+  <script defer src="/liveness.js"></script>
+  <script defer src="/kiosk.js"></script>
+</head>
+<body>
+  <div id="loading" class="loading-models">
+    <div class="spinner"></div>
+    <div>Loading face recognition…</div>
+  </div>
+
+  <div class="kiosk">
+    <div class="kiosk-head">
+      <div class="brand-badge"><span class="dot"></span> Time Clock</div>
+      <div class="kiosk-clock">
+        <div class="time" id="clockTime">–</div>
+        <div class="date" id="clockDate">–</div>
+      </div>
+    </div>
+
+    <div class="stage">
+      <video id="video" autoplay muted playsinline></video>
+      <div class="facebox" id="facebox" style="display:none"></div>
+      <div class="countdown" id="countdown"></div>
+      <div class="liveness" id="liveness">
+        <div class="lv-step" id="lvStep"></div>
+        <div class="lv-instruction" id="lvInstruction"></div>
+        <div class="lv-tick" id="lvTick"></div>
+        <div class="lv-bar"><div class="lv-bar-fill" id="lvBar"></div></div>
+      </div>
+      <div class="hint" id="hint">Tap what you want to do — then look at the camera.</div>
+    </div>
+
+    <div class="actions">
+      <button class="action in"     data-type="clock_in">   <span class="ico">🟢</span> Clock In   <span class="sub">Start of shift</span></button>
+      <button class="action brk"    data-type="break_start"><span class="ico">☕</span> Start Break<span class="sub">Step away</span></button>
+      <button class="action brkend" data-type="break_end">  <span class="ico">🔙</span> End Break  <span class="sub">Back to work</span></button>
+      <button class="action out"    data-type="clock_out">  <span class="ico">🔴</span> Clock Out  <span class="sub">End of shift</span></button>
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay">
+    <div class="result" id="result">
+      <div class="big-ico" id="rIco">✓</div>
+      <h2 id="rTitle">Done</h2>
+      <div class="who" id="rWho"></div>
+      <div class="status-tag" id="rStatus"></div>
+      <div class="meta" id="rMeta"></div>
+    </div>
+  </div>
+</body>
+</html>

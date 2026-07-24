@@ -1,0 +1,8 @@
+node_modules/
+data/attendance.db
+data/attendance.db-*
+data/photos/
+data/certs/
+attendance-export.db
+.env
+.DS_Store

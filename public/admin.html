@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Attendance · Admin</title>
+  <link rel="stylesheet" href="/style.css" />
+  <script defer src="/vendor/face-api.js"></script>
+  <script defer src="/face.js"></script>
+  <script defer src="/admin.js"></script>
+</head>
+<body>
+  <!-- LOGIN -->
+  <div class="login-wrap" id="loginWrap">
+    <div class="card login">
+      <div class="brand-badge" style="margin-bottom:16px"><span class="dot"></span> Attendance Admin</div>
+      <label class="field"><span>Admin PIN</span>
+        <input type="password" id="pin" inputmode="numeric" placeholder="••••" autocomplete="off" />
+      </label>
+      <button class="btn" id="loginBtn" style="width:100%">Log in</button>
+      <p class="help" id="loginErr" style="color:var(--red);margin:10px 0 0;display:none"></p>
+      <p class="help" style="margin-top:14px">Default PIN is <b>1234</b> on first run. Change it in Settings.</p>
+    </div>
+  </div>
+
+  <!-- APP -->
+  <div class="admin" id="app" style="display:none">
+    <div class="topbar">
+      <div class="brand-badge"><span class="dot"></span> Attendance</div>
+      <div class="tabs">
+        <button class="tab active" data-tab="report">Daily report</button>
+        <button class="tab" data-tab="employees">Employees</button>
+        <button class="tab" data-tab="settings">Settings</button>
+      </div>
+      <button class="btn ghost sm" id="logoutBtn">Log out</button>
+    </div>
+
+    <!-- REPORT -->
+    <section id="tab-report">
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+          <h2>Daily report</h2>
+          <div style="display:flex;gap:10px;align-items:center">
+            <input type="date" id="reportDate" style="width:auto" />
+            <button class="btn ghost sm" id="refreshReport">Refresh</button>
+            <button class="btn sm" id="exportCsv">Export CSV</button>
+          </div>
+        </div>
+        <div class="report-summary" id="reportSummary"></div>
+        <div style="overflow-x:auto">
+          <table id="reportTable">
+            <thead><tr>
+              <th></th><th>Employee</th><th>Scheduled</th><th>Arrival</th><th>Status</th>
+              <th>Breaks</th><th>Departure</th><th>Worked</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- EMPLOYEES -->
+    <section id="tab-employees" style="display:none">
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <h2>Employees</h2>
+          <button class="btn" id="addEmp">+ Add employee</button>
+        </div>
+        <div style="overflow-x:auto">
+          <table id="empTable">
+            <thead><tr>
+              <th></th><th>Name</th><th>Status</th><th>Faces</th><th>Grace</th><th>Working days</th><th></th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="tab-settings" style="display:none">
+      <div class="card" style="max-width:640px">
+        <h2 style="margin-bottom:6px">Anti-spoofing (liveness)</h2>
+        <p class="help" style="margin:0 0 16px">Before each punch, the kiosk asks the person to turn their head or smile (chosen at random) and verifies it live — so a printed photo or a face on a phone screen is rejected.</p>
+        <label class="field" style="display:flex;gap:10px;align-items:flex-start;margin-bottom:16px">
+          <input type="checkbox" id="livenessEnabled" style="width:auto;margin-top:3px" />
+          <span style="margin:0"><b>Require a liveness check</b> before every clock-in / break / clock-out.</span>
+        </label>
+        <label class="field" style="max-width:280px"><span>How many checks each time</span>
+          <select id="livenessChallenges">
+            <option value="1">1 — faster</option>
+            <option value="2">2 — stronger (recommended)</option>
+          </select>
+        </label>
+        <button class="btn" id="saveLiveness">Save anti-spoofing</button>
+      </div>
+      <div class="card" style="max-width:480px">
+        <h2 style="margin-bottom:14px">Change admin PIN</h2>
+        <label class="field"><span>New PIN (4–8 digits)</span>
+          <input type="password" id="newPin" inputmode="numeric" />
+        </label>
+        <button class="btn" id="savePin">Update PIN</button>
+      </div>
+      <div class="card" style="max-width:640px">
+        <h2 style="margin-bottom:10px">How matching works</h2>
+        <p class="help">Faces are matched on-device using a 128-point face signature — the raw photo is only kept as a small thumbnail for your audit. Each clock event compares the live face to every enrolled employee and picks the closest match within a confidence threshold. Enroll 3+ samples per person (different angles/lighting) for best accuracy.</p>
+      </div>
+    </section>
+  </div>
+
+  <!-- EMPLOYEE MODAL -->
+  <div class="modal-bg" id="empModal">
+    <div class="modal">
+      <h2 id="empModalTitle">Add employee</h2>
+      <p class="help" style="margin:4px 0 18px">Set the name, weekly schedule, and enroll the employee's face.</p>
+      <div class="grid2">
+        <div>
+          <label class="field"><span>Full name</span><input type="text" id="empName" placeholder="e.g. Jane Doe" /></label>
+          <label class="field"><span>Grace period (minutes late still counts as on-time)</span>
+            <input type="number" id="empGrace" value="5" min="0" max="120" /></label>
+
+          <div style="margin-bottom:8px"><span class="muted" style="font-size:13px;font-weight:600">Weekly schedule</span></div>
+          <div class="sched-grid" id="schedGrid">
+            <div class="hd">Day</div><div class="hd">Works</div><div class="hd">Start</div><div class="hd">End</div>
+          </div>
+        </div>
+
+        <div>
+          <div style="margin-bottom:8px"><span class="muted" style="font-size:13px;font-weight:600">Face enrollment</span></div>
+          <div class="enroll-cam"><video id="enrollVideo" autoplay muted playsinline></video></div>
+          <div style="display:flex;gap:10px;margin-top:10px">
+            <button class="btn sm" id="captureFace" type="button">📸 Capture sample</button>
+            <button class="btn ghost sm" id="clearFaces" type="button">Clear</button>
+            <span class="help" id="captureHint" style="align-self:center"></span>
+          </div>
+          <div class="samples" id="sampleThumbs"></div>
+
+          <label class="field" id="consentRow" style="margin-top:16px;display:flex;gap:10px;align-items:flex-start">
+            <input type="checkbox" id="empConsent" style="width:auto;margin-top:3px" />
+            <span style="margin:0">The employee has been informed and <b>consents</b> to face-based attendance (required to enroll).</span>
+          </label>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:12px">
+        <button class="btn danger sm" id="deleteEmp" type="button" style="visibility:hidden">Delete permanently</button>
+        <div style="display:flex;gap:10px">
+          <button class="btn ghost" id="cancelEmp" type="button">Cancel</button>
+          <button class="btn" id="saveEmp" type="button">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</body>
+</html>

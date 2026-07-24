@@ -1,0 +1,19 @@
+# Render Blueprint — deploys the attendance kiosk on Render's free plan.
+# In Render: New + → Blueprint → pick your repo → it reads this file.
+# You still set the three env vars below in the dashboard (they're marked sync:false).
+services:
+  - type: web
+    name: attendance-kiosk
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL        # from Turso: libsql://<db>-<org>.turso.io
+        sync: false
+      - key: DATABASE_AUTH_TOKEN # from Turso: a database token
+        sync: false
+      - key: ADMIN_PIN           # optional: sets the admin PIN on first run (else 1234)
+        sync: false
