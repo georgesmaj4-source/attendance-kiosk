@@ -8,24 +8,24 @@ const Liveness = (() => {
   // a still image on a screen cannot fake, so any of them alone is a valid gate.
   const CHALLENGES = ['turn', 'smile'];
 
-  // Tuning thresholds (may need small field adjustments per camera/lighting).
-  const YAW_FORWARD = 0.12;  // |nose offset| below this = facing forward
-  const YAW_TURNED = 0.20;   // |nose offset| above this = head turned
-  const HAPPY_ON = 0.75;     // smile probability to count as smiling
-  const HAPPY_OFF = 0.35;    // must dip below this first (deliberate smile)
-  const FRAME_MS = 130;      // ~7–8 fps detection loop
-  const PER_CHALLENGE_MS = 7000;
-  const MAX_MISS = 12;       // consecutive frames with no face before we fail
+  // Tuning thresholds — deliberately forgiving so real people pass reliably on an
+  // iPad camera; still enough motion to reject a static photo/screen.
+  const YAW_TURN = 0.13;     // how much the head must ROTATE (swing) to count as a turn
+  const YAW_STRONG = 0.22;   // a clearly side-facing head also counts on its own
+  const SMILE_RISE = 0.20;   // how much the smile must GROW from resting to count
+  const FRAME_MS = 110;      // detection loop pace
+  const PER_CHALLENGE_MS = 12000; // generous time per prompt
+  const MAX_MISS = 25;       // consecutive frames with no face before we fail
 
   const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
   const mean = (pts) => ({ x: pts.reduce((s, p) => s + p.x, 0) / pts.length, y: pts.reduce((s, p) => s + p.y, 0) / pts.length });
 
-  // Nose offset relative to the eye midline, normalised by interocular distance → yaw proxy.
+  // Nose-tip offset from the eye midline, normalised by interocular distance → yaw proxy.
   function yaw(landmarks) {
     const l = mean(landmarks.getLeftEye());
     const r = mean(landmarks.getRightEye());
     const nose = landmarks.getNose();
-    const tip = nose[nose.length - 1] || nose[3];
+    const tip = nose[3] || nose[nose.length - 1]; // index 3 = nose tip (landmark 30)
     const mid = { x: (l.x + r.x) / 2, y: (l.y + r.y) / 2 };
     const io = dist(l, r) || 1;
     return (tip.x - mid.x) / io;
@@ -47,20 +47,20 @@ const Liveness = (() => {
 
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-  // Run one challenge; returns true if satisfied before timeout.
+  // Run one challenge. onTick(message, remaining, progressPct) reports live progress
+  // (progressPct fills the on-screen bar so the user can see detection working).
   async function runChallenge(video, kind, onTick) {
     const t0 = Date.now();
     let miss = 0;
-    // per-challenge state
-    let sawForward = false, sawNeutral = false;
-    let minYaw = 0, maxYaw = 0, first = true;
+    let minYaw = 0, maxYaw = 0, first = true, minHappy = null;
+    const tick = (msg, rem, pct) => onTick && onTick(msg, rem, pct);
 
     while (Date.now() - t0 < PER_CHALLENGE_MS) {
       const frameStart = Date.now();
       let live = null;
       try { live = await FaceKit.detectLive(video); } catch { live = null; }
       if (!live) {
-        if (++miss > MAX_MISS) return { ok: false, reason: 'Face not visible — look at the camera.' };
+        if (++miss > MAX_MISS) return { ok: false, reason: 'Face not visible — look straight at the camera.' };
       } else {
         miss = 0;
         const remaining = Math.max(0, PER_CHALLENGE_MS - (Date.now() - t0));
@@ -68,22 +68,22 @@ const Liveness = (() => {
           const y = yaw(live.landmarks);
           if (first) { minYaw = maxYaw = y; first = false; }
           minYaw = Math.min(minYaw, y); maxYaw = Math.max(maxYaw, y);
-          if (Math.abs(y) < YAW_FORWARD) sawForward = true;
-          const turned = (sawForward && Math.abs(y) > YAW_TURNED) || (maxYaw - minYaw > 0.28);
-          if (turned) { onTick && onTick('Head turn detected ✓', remaining); return { ok: true }; }
-          onTick && onTick(LABELS.turn, remaining);
+          const swing = maxYaw - minYaw;
+          if (swing >= YAW_TURN || Math.abs(y) >= YAW_STRONG) { tick('Got it ✓', remaining, 100); return { ok: true }; }
+          tick('Turn your head slowly to the side', remaining, Math.round((swing / YAW_TURN) * 100));
         } else if (kind === 'smile') {
           const happy = live.expressions.happy || 0;
-          if (happy < HAPPY_OFF) sawNeutral = true;
-          // Require a neutral→smile change (a static smiling photo never goes neutral).
-          if (sawNeutral && happy > HAPPY_ON) { onTick && onTick('Smile detected ✓', remaining); return { ok: true }; }
-          onTick && onTick(sawNeutral ? LABELS.smile : 'Relax your face, then smile 🙂', remaining);
+          if (minHappy == null) minHappy = happy;
+          minHappy = Math.min(minHappy, happy);
+          const rise = happy - minHappy; // how much the smile grew from the resting face
+          if (rise >= SMILE_RISE && happy >= 0.45) { tick('Got it ✓', remaining, 100); return { ok: true }; }
+          tick('Give us a big smile 🙂', remaining, Math.round((rise / SMILE_RISE) * 100));
         }
       }
       const elapsed = Date.now() - frameStart;
       if (elapsed < FRAME_MS) await sleep(FRAME_MS - elapsed);
     }
-    return { ok: false, reason: 'Timed out — please try again.' };
+    return { ok: false, reason: "Couldn't quite catch it — try again, a little slower." };
   }
 
   // Full check. opts: { challenges:[...] } OR { count:n }. Callbacks: onInstruction, onTick.

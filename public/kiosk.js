@@ -70,23 +70,25 @@
   }
 
   // Liveness (anti-spoof) sequence — returns { passed, reason, challenges }.
-  const LV_PER = 7000;
+  // The bar fills with DETECTION PROGRESS (how far along the turn/smile is), so
+  // the user gets live feedback that it's working.
   async function runLiveness() {
     const panel = $('liveness'), stepEl = $('lvStep'), insEl = $('lvInstruction'),
       tickEl = $('lvTick'), barEl = $('lvBar');
-    stepEl.textContent = 'Liveness check'; insEl.textContent = 'Get ready…';
-    tickEl.textContent = ''; barEl.style.width = '100%';
+    stepEl.textContent = 'Quick check'; insEl.textContent = 'Get ready…';
+    tickEl.textContent = ''; barEl.style.width = '0%';
     panel.classList.add('show');
     const res = await Liveness.run(video, {
       count: config.challenges,
       onInstruction: (label, i, n) => {
         if (/^Great/.test(label)) { tickEl.textContent = 'Great ✓'; return; }
-        stepEl.textContent = `Step ${i} of ${n}`;
-        insEl.textContent = label; tickEl.textContent = '';
+        stepEl.textContent = n > 1 ? `Step ${i} of ${n}` : 'Quick check';
+        insEl.textContent = label; tickEl.textContent = ''; barEl.style.width = '0%';
       },
-      onTick: (msg, remaining) => {
-        if (/✓/.test(msg)) tickEl.textContent = msg;
-        barEl.style.width = Math.max(0, Math.min(100, (remaining / LV_PER) * 100)) + '%';
+      onTick: (msg, remaining, pct) => {
+        if (/✓|Got it/.test(msg)) { tickEl.textContent = msg; barEl.style.width = '100%'; }
+        else { insEl.textContent = msg; tickEl.textContent = ''; }
+        if (typeof pct === 'number') barEl.style.width = Math.max(4, Math.min(100, pct)) + '%';
       },
     });
     panel.classList.remove('show');
