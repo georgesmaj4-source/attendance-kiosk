@@ -133,8 +133,9 @@ app.post('/api/kiosk/event', A(async (req, res) => {
     } else if (type === 'clock_out' && sched && sched.is_working && sched.end_time) {
       const endMin = L.hhmmToMinutes(sched.end_time);
       if (nowMin < endMin) statusLine = `Left ${endMin - nowMin} min early`;
-      else if (nowMin > endMin) statusLine = `${nowMin - endMin} min overtime`;
-      else statusLine = 'Right on time';
+      else if (nowMin === endMin) statusLine = 'Right on time';
+      // Overtime is intentionally NOT shown to the employee on the kiosk —
+      // only the manager sees it in the admin report.
     }
   }
   const labels = { clock_in: 'Clocked in', break_start: 'Break started', break_end: 'Back from break', clock_out: 'Clocked out' };
