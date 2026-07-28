@@ -127,7 +127,9 @@ app.post('/api/kiosk/event', A(async (req, res) => {
     if (sched && sched.is_working && sched.start_time) {
       const startMin = L.hhmmToMinutes(sched.start_time);
       const arrMin = now.getHours() * 60 + now.getMinutes();
-      statusLine = arrMin <= startMin + (emp.grace_minutes || 0) ? 'On time' : `Late by ${arrMin - startMin} min`;
+      if (arrMin < startMin) statusLine = `Early by ${startMin - arrMin} min`;
+      else if (arrMin <= startMin + (emp.grace_minutes || 0)) statusLine = 'On time';
+      else statusLine = `Late by ${arrMin - startMin} min`;
     }
   }
   const labels = { clock_in: 'Clocked in', break_start: 'Break started', break_end: 'Back from break', clock_out: 'Clocked out' };
@@ -248,10 +250,10 @@ app.get('/api/admin/report.csv', requireAdmin, A(async (req, res) => {
   const report = await L.buildDayReport(date);
   const esc = (v) => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
   const t = (iso) => (iso ? L.formatClock(L.localParts(new Date(iso)).time) : '');
-  const statusText = { on_time: 'On time', late: 'Late', absent: 'Absent', off: 'Day off' };
-  const lines = [['Date', 'Employee', 'Scheduled start', 'Arrival', 'Status', 'Late (min)', 'Departure', 'Breaks', 'Break min', 'Worked min'].join(',')];
+  const statusText = { on_time: 'On time', early: 'Early', late: 'Late', absent: 'Absent', off: 'Day off' };
+  const lines = [['Date', 'Employee', 'Scheduled start', 'Arrival', 'Status', 'Early (min)', 'Late (min)', 'Departure', 'Breaks', 'Break min', 'Worked min'].join(',')];
   for (const r of report.rows) {
-    lines.push([date, r.name, r.scheduled_start || '', t(r.arrival_ts), statusText[r.status] || r.status, r.late_minutes || 0, t(r.departure_ts), r.break_count, r.break_minutes, r.worked_minutes == null ? '' : r.worked_minutes].map(esc).join(','));
+    lines.push([date, r.name, r.scheduled_start || '', t(r.arrival_ts), statusText[r.status] || r.status, r.early_minutes || 0, r.late_minutes || 0, t(r.departure_ts), r.break_count, r.break_minutes, r.worked_minutes == null ? '' : r.worked_minutes].map(esc).join(','));
   }
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', `attachment; filename="attendance-${date}.csv"`);

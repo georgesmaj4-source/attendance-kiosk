@@ -129,7 +129,7 @@ async function buildDayReport(localDate) {
     }
     if (openBreak) breaks.push({ start: openBreak, end: null });
 
-    let status = 'off', lateMinutes = 0;
+    let status = 'off', lateMinutes = 0, earlyMinutes = 0;
     const startMin = hhmmToMinutes(sched.start_time);
     if (sched.is_working) {
       if (!arrival) status = 'absent';
@@ -137,7 +137,8 @@ async function buildDayReport(localDate) {
       else {
         const arr = new Date(arrival.ts);
         const arrMin = arr.getHours() * 60 + arr.getMinutes();
-        if (arrMin <= startMin + (emp.grace_minutes || 0)) status = 'on_time';
+        if (arrMin < startMin) { status = 'early'; earlyMinutes = startMin - arrMin; }
+        else if (arrMin <= startMin + (emp.grace_minutes || 0)) status = 'on_time';
         else { status = 'late'; lateMinutes = arrMin - startMin; }
       }
     } else {
@@ -162,7 +163,7 @@ async function buildDayReport(localDate) {
       arrival_ts: arrival ? arrival.ts : null,
       arrival_photo: arrival ? arrival.photo : null,   // inline base64 data URL
       departure_ts: departure ? departure.ts : null,
-      status, late_minutes: lateMinutes,
+      status, late_minutes: lateMinutes, early_minutes: earlyMinutes,
       breaks, break_count: breaks.length, break_minutes: breakMinutes,
       worked_minutes: workedMinutes, still_on_break: !!openBreak,
     });

@@ -97,7 +97,7 @@
     const rows = data.rows;
     const count = { present: 0, on_time: 0, late: 0, absent: 0 };
     for (const r of rows) {
-      if (r.status === 'on_time') { count.on_time++; count.present++; }
+      if (r.status === 'on_time' || r.status === 'early') { count.on_time++; count.present++; }
       else if (r.status === 'late') { count.late++; count.present++; }
       else if (r.status === 'absent') count.absent++;
       else if (r.arrival_ts) count.present++;
@@ -117,6 +117,7 @@
         : '<span class="muted">Day off</span>';
       let statusPill;
       if (r.status === 'on_time') statusPill = '<span class="pill green">On time</span>';
+      else if (r.status === 'early') statusPill = `<span class="pill green">Early ${r.early_minutes}m</span>`;
       else if (r.status === 'late') statusPill = `<span class="pill red">Late ${r.late_minutes}m</span>`;
       else if (r.status === 'absent') statusPill = '<span class="pill amber">Absent</span>';
       else statusPill = '<span class="pill grey">—</span>';
