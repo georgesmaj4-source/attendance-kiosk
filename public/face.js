@@ -1,29 +1,42 @@
 // Browser-side face helper built on face-api.js (UMD global: `faceapi`).
 // Loads models locally from /models (no internet needed) and extracts a
 // 128-d descriptor from a video/image element.
+//
+// Uses the lightweight TinyFaceDetector (fast to load + fast per scan) instead of
+// the heavy SSD MobileNet — a big win on older iPads. The 128-d descriptor comes
+// from the recognition net after landmark alignment, so matching quality is the
+// same regardless of which detector found the face.
 const FaceKit = (() => {
-  let loaded = false;
+  let loaded = false;         // detector + landmarks + recognition ready
   let loadingPromise = null;
+  let expLoaded = false;      // expression net (only needed for smile liveness)
 
-  async function load() {
-    if (loaded) return;
-    if (loadingPromise) return loadingPromise;
-    loadingPromise = (async () => {
-      const base = '/models';
-      await faceapi.nets.ssdMobilenetv1.loadFromUri(base);
-      await faceapi.nets.faceLandmark68Net.loadFromUri(base);
-      await faceapi.nets.faceRecognitionNet.loadFromUri(base);
-      await faceapi.nets.faceExpressionNet.loadFromUri(base); // for smile-based liveness
-      loaded = true;
-    })();
-    return loadingPromise;
+  // Tuned for a close-range kiosk: small input size = fast; the face is large in frame.
+  const detOptions = () => new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.35 });
+
+  async function load({ expressions = false } = {}) {
+    if (!loaded) {
+      if (!loadingPromise) {
+        loadingPromise = (async () => {
+          const base = '/models';
+          await faceapi.nets.tinyFaceDetector.loadFromUri(base);
+          await faceapi.nets.faceLandmark68Net.loadFromUri(base);
+          await faceapi.nets.faceRecognitionNet.loadFromUri(base);
+          loaded = true;
+        })();
+      }
+      await loadingPromise;
+    }
+    if (expressions && !expLoaded) {
+      await faceapi.nets.faceExpressionNet.loadFromUri('/models');
+      expLoaded = true;
+    }
   }
 
   // Detect a single face and return { descriptor:[128], box, score } or null.
   async function getDescriptor(input) {
-    const opts = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.45 });
     const res = await faceapi
-      .detectSingleFace(input, opts)
+      .detectSingleFace(input, detOptions())
       .withFaceLandmarks()
       .withFaceDescriptor();
     if (!res) return null;
@@ -36,10 +49,9 @@ const FaceKit = (() => {
   }
 
   // Detect landmarks + expressions in one pass (used by the liveness loop).
-  // Returns { landmarks, expressions, box } or null.
   async function detectLive(input) {
     const res = await faceapi
-      .detectSingleFace(input, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.4 }))
+      .detectSingleFace(input, detOptions())
       .withFaceLandmarks()
       .withFaceExpressions();
     if (!res) return null;
@@ -47,11 +59,9 @@ const FaceKit = (() => {
     return { landmarks: res.landmarks, expressions: res.expressions, box: { x: b.x, y: b.y, width: b.width, height: b.height } };
   }
 
-  // Just detect a box (for the live overlay) — lighter, no descriptor/landmarks.
+  // Just detect a box — lightest call (no landmarks/descriptor).
   async function detectBox(input) {
-    const res = await faceapi.detectSingleFace(
-      input, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.4 })
-    );
+    const res = await faceapi.detectSingleFace(input, detOptions());
     if (!res) return null;
     const b = res.box;
     return { x: b.x, y: b.y, width: b.width, height: b.height };

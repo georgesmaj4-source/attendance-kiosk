@@ -7,8 +7,9 @@
   const countdownEl = $('countdown');
   const actions = Array.from(document.querySelectorAll('.action'));
   let busy = false;
-  let readyLoop = null;
   let config = { liveness: true, challenges: 2 };
+  let modelsReady = false;
+  let modelsPromise = null;
 
   // ---- live clock ----
   function tickClock() {
@@ -47,28 +48,6 @@
     $('loading').style.display = 'flex';
   }
 
-  // ---- light readiness hint (detect a face while idle) ----
-  async function readinessTick() {
-    if (busy || !FaceKit.isLoaded() || video.readyState < 2) return;
-    try {
-      const box = await FaceKit.detectBox(video);
-      if (box) { hint.textContent = 'Looking good ✓  — tap an action'; hint.style.color = '#7ff0b4'; }
-      else { hint.textContent = 'Center your face in the frame'; hint.style.color = ''; }
-    } catch { /* ignore */ }
-  }
-
-  // ---- capture + submit ----
-  async function runCountdown() {
-    countdownEl.style.display = 'flex';
-    for (let n = 3; n >= 1; n--) {
-      countdownEl.textContent = n;
-      await sleep(650);
-    }
-    countdownEl.textContent = '📸';
-    await sleep(250);
-    countdownEl.style.display = 'none';
-  }
-
   // Liveness (anti-spoof) sequence — returns { passed, reason, challenges }.
   // The bar fills with DETECTION PROGRESS (how far along the turn/smile is), so
   // the user gets live feedback that it's working.
@@ -99,8 +78,14 @@
     if (busy) return;
     busy = true;
     setButtons(false);
-    hint.textContent = 'Hold still…';
     hint.style.color = '';
+
+    // The very first tap can arrive before the AI finished loading in the background.
+    if (!modelsReady) {
+      hint.textContent = 'Getting ready… one moment';
+      try { await modelsPromise; }
+      catch { showResult({ ok: false, message: 'Could not start the camera system. Please reload the page.' }); return finish(); }
+    }
 
     let liveness = null;
     if (config.liveness) {
@@ -112,7 +97,7 @@
       }
       liveness = { passed: true, challenges: lv.challenges };
     } else {
-      await runCountdown();
+      hint.textContent = 'Capturing…';
     }
 
     let cap = null;
@@ -189,13 +174,22 @@
     } catch { /* keep defaults */ }
     const camOk = await startCamera();
     if (!camOk) return;
-    try {
-      await FaceKit.load();
-    } catch (e) {
-      fatal('Could not load face models', 'Reload the page. If it persists, restart the server.');
-      return;
-    }
+
+    // Show the kiosk right away — do NOT freeze the screen while the AI loads.
     $('loading').style.display = 'none';
-    readyLoop = setInterval(readinessTick, 1100);
+    hint.textContent = 'Starting up…';
+
+    // Load the models in the background, then run one warm-up scan so the very
+    // first real scan is fast (compiles the GPU shaders ahead of time).
+    modelsPromise = (async () => {
+      await FaceKit.load({ expressions: config.liveness });
+      try { await FaceKit.getDescriptor(video); } catch { /* warm-up only */ }
+    })();
+    modelsPromise.then(() => {
+      modelsReady = true;
+      if (!busy) hint.textContent = 'Tap what you want to do — then look at the camera.';
+    }).catch(() => {
+      fatal('Could not load face recognition', 'Reload the page. If it keeps happening, restart the app.');
+    });
   });
 })();
