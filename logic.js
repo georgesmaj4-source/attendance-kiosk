@@ -153,6 +153,18 @@ async function buildDayReport(localDate) {
       workedMinutes = Math.max(0, gross - breakMinutes);
     }
 
+    // Departure vs scheduled end: left early, or stayed overtime.
+    let departureStatus = null, departureDiff = 0;
+    const endMin = hhmmToMinutes(sched.end_time);
+    if (departure && sched.is_working && endMin != null) {
+      const dep = new Date(departure.ts);
+      const depMin = dep.getHours() * 60 + dep.getMinutes();
+      const diff = depMin - endMin;
+      if (diff < 0) { departureStatus = 'early'; departureDiff = -diff; }   // left before scheduled end
+      else if (diff > 0) { departureStatus = 'over'; departureDiff = diff; } // stayed past scheduled end
+      else departureStatus = 'on_time';
+    }
+
     rows.push({
       employee_id: Number(emp.id),
       name: emp.name,
@@ -163,6 +175,7 @@ async function buildDayReport(localDate) {
       arrival_ts: arrival ? arrival.ts : null,
       arrival_photo: arrival ? arrival.photo : null,   // inline base64 data URL
       departure_ts: departure ? departure.ts : null,
+      departure_status: departureStatus, departure_diff: departureDiff,
       status, late_minutes: lateMinutes, early_minutes: earlyMinutes,
       breaks, break_count: breaks.length, break_minutes: breakMinutes,
       worked_minutes: workedMinutes, still_on_break: !!openBreak,

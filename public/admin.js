@@ -128,6 +128,10 @@
         breaksCell = `<details class="breaks"><summary>${r.break_count} · ${fmtMins(r.break_minutes)}</summary><ul>${items}</ul></details>`;
       } else if (r.still_on_break) breaksCell = '<span class="pill amber">on break</span>';
 
+      let depCell = fmtTime(r.departure_ts);
+      if (r.departure_ts && r.departure_status === 'over') depCell += ` <span class="pill green">+${r.departure_diff}m over</span>`;
+      else if (r.departure_ts && r.departure_status === 'early') depCell += ` <span class="pill amber">${r.departure_diff}m early</span>`;
+
       return `<tr>
         <td>${avatar(r.arrival_photo, r.name)}</td>
         <td><b>${escapeHtml(r.name)}</b></td>
@@ -135,7 +139,7 @@
         <td>${fmtTime(r.arrival_ts)}</td>
         <td>${statusPill}</td>
         <td>${breaksCell}</td>
-        <td>${fmtTime(r.departure_ts)}</td>
+        <td>${depCell}</td>
         <td>${fmtMins(r.worked_minutes)}</td>
       </tr>`;
     }).join('');
