@@ -79,7 +79,7 @@ app.get('/healthz', (req, res) => res.type('text').send('ok'));
 
 app.get('/api/kiosk/config', A(async (req, res) => {
   const lv = await livenessConfig();
-  res.json({ liveness: lv.enabled, challenges: lv.challenges });
+  res.json({ liveness: lv.enabled, challenges: lv.challenges, brand: await getSetting('brand_name', 'Attendance Kiosk') });
 }));
 
 app.post('/api/kiosk/identify', A(async (req, res) => {
@@ -152,14 +152,18 @@ app.post('/api/admin/login', A(async (req, res) => {
 
 app.get('/api/admin/settings', requireAdmin, A(async (req, res) => {
   const lv = await livenessConfig();
-  res.json({ liveness_enabled: lv.enabled, liveness_challenges: lv.challenges });
+  res.json({ liveness_enabled: lv.enabled, liveness_challenges: lv.challenges, brand_name: await getSetting('brand_name', 'Attendance Kiosk') });
 }));
 app.post('/api/admin/settings', requireAdmin, A(async (req, res) => {
-  const { liveness_enabled, liveness_challenges } = req.body || {};
+  const { liveness_enabled, liveness_challenges, brand_name } = req.body || {};
   if (liveness_enabled != null) await run('UPDATE settings SET value = ? WHERE key = ?', [liveness_enabled ? '1' : '0', 'liveness_enabled']);
   if (liveness_challenges != null) {
     const n = Math.max(1, Math.min(2, parseInt(liveness_challenges, 10) || 2));
     await run('UPDATE settings SET value = ? WHERE key = ?', [String(n), 'liveness_challenges']);
+  }
+  if (brand_name != null) {
+    const name = String(brand_name).trim().slice(0, 40) || 'Attendance Kiosk';
+    await run('UPDATE settings SET value = ? WHERE key = ?', [name, 'brand_name']);
   }
   res.json({ ok: true });
 }));

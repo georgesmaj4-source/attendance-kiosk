@@ -90,6 +90,8 @@ async function init() {
   await seedSetting('admin_pin_hash', sha256(envPin));
   await seedSetting('liveness_enabled', '1');
   await seedSetting('liveness_challenges', '2');
+  // White-label company name shown on the kiosk + admin. Editable in admin Settings.
+  await seedSetting('brand_name', process.env.BRAND_NAME || 'Attendance Kiosk');
 }
 
 module.exports = { db, get, all, run, batch, sha256, init, CLOUD };

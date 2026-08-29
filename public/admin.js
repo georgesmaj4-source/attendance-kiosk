@@ -333,6 +333,7 @@
       const s = await api('/api/admin/settings');
       $('livenessEnabled').checked = !!s.liveness_enabled;
       $('livenessChallenges').value = String(s.liveness_challenges || 2);
+      if (s.brand_name != null) $('brandName').value = s.brand_name;
     } catch (e) { /* ignore */ }
   }
   async function saveLiveness() {
@@ -343,6 +344,23 @@
       }) });
     } catch (e) { return toast(e.message, 'err'); }
     toast('Anti-spoofing saved', 'ok');
+  }
+
+  // Company name (white-label) — public, so it works on the login screen too.
+  async function applyBrand() {
+    try {
+      const c = await (await fetch('/api/kiosk/config')).json();
+      if (c && c.brand) {
+        document.querySelectorAll('.brand-name').forEach(el => el.textContent = c.brand);
+        document.title = c.brand + ' · Admin';
+      }
+    } catch { /* ignore */ }
+  }
+  async function saveBrand() {
+    try { await api('/api/admin/settings', { method: 'POST', body: JSON.stringify({ brand_name: $('brandName').value }) }); }
+    catch (e) { return toast(e.message, 'err'); }
+    applyBrand();
+    toast('Company name saved', 'ok');
   }
 
   // ---------- misc ----------
@@ -367,7 +385,9 @@
     $('clearFaces').addEventListener('click', () => { samples = []; renderThumbs(); $('captureHint').textContent = 'Cleared.'; });
     $('savePin').addEventListener('click', savePin);
     $('saveLiveness').addEventListener('click', saveLiveness);
+    $('saveBrand').addEventListener('click', saveBrand);
 
+    applyBrand();
     if (token) showApp().catch(() => logout());
   });
 })();

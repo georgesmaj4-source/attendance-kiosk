@@ -170,7 +170,11 @@
     actions.forEach(b => b.addEventListener('click', () => doAction(b.dataset.type)));
     try {
       const c = await (await fetch('/api/kiosk/config')).json();
-      config = { liveness: !!c.liveness, challenges: c.challenges || 2 };
+      config = { liveness: !!c.liveness, challenges: c.challenges || 2, brand: c.brand };
+      if (c.brand) {
+        document.querySelectorAll('.brand-name').forEach(el => el.textContent = c.brand);
+        document.title = c.brand;
+      }
     } catch { /* keep defaults */ }
     const camOk = await startCamera();
     if (!camOk) return;

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Vitale Holding · Admin</title>
+  <title>Attendance Kiosk · Admin</title>
   <link rel="stylesheet" href="/style.css" />
   <script defer src="/vendor/face-api.js"></script>
   <script defer src="/face.js"></script>
@@ -13,7 +13,7 @@
   <!-- LOGIN -->
   <div class="login-wrap" id="loginWrap">
     <div class="card login">
-      <div class="brand-badge" style="margin-bottom:16px"><span class="dot"></span> Vitale Holding</div>
+      <div class="brand-badge" style="margin-bottom:16px"><span class="dot"></span> <span class="brand-name">Attendance Kiosk</span></div>
       <label class="field"><span>Admin PIN</span>
         <input type="password" id="pin" inputmode="numeric" placeholder="••••" autocomplete="off" />
       </label>
@@ -26,7 +26,7 @@
   <!-- APP -->
   <div class="admin" id="app" style="display:none">
     <div class="topbar">
-      <div class="brand-badge"><span class="dot"></span> Vitale Holding</div>
+      <div class="brand-badge"><span class="dot"></span> <span class="brand-name">Attendance Kiosk</span></div>
       <div class="tabs">
         <button class="tab active" data-tab="report">Daily report</button>
         <button class="tab" data-tab="employees">Employees</button>
@@ -79,6 +79,14 @@
 
     <!-- SETTINGS -->
     <section id="tab-settings" style="display:none">
+      <div class="card" style="max-width:480px">
+        <h2 style="margin-bottom:6px">Company name</h2>
+        <p class="help" style="margin:0 0 14px">Shown at the top of the kiosk and this console.</p>
+        <label class="field"><span>Name</span>
+          <input type="text" id="brandName" maxlength="40" placeholder="e.g. Vitale Holding" />
+        </label>
+        <button class="btn" id="saveBrand">Save name</button>
+      </div>
       <div class="card" style="max-width:640px">
         <h2 style="margin-bottom:6px">Anti-spoofing (liveness)</h2>
         <p class="help" style="margin:0 0 16px">Before each punch, the kiosk asks the person to turn their head or smile (chosen at random) and verifies it live — so a printed photo or a face on a phone screen is rejected.</p>
