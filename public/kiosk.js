@@ -76,6 +76,7 @@
 
   async function doAction(type) {
     if (busy) return;
+    keepScreenOn(); // some iPads only grant the screen-on lock after a tap
     busy = true;
     setButtons(false);
     hint.style.color = '';
@@ -165,8 +166,37 @@
 
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
+  // ---- stay ready all day ----
+  // 1) Keep the heavy face files saved on the iPad (see /sw.js) so a relaunch is instant.
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => { /* still works, just slower */ });
+  }
+
+  // 2) Heartbeat: while the kiosk is open, ping the server every 4 minutes so the
+  //    free hosting plan never puts it to sleep (it sleeps after 15 idle minutes).
+  //    This is what keeps morning and afternoon shifts from waiting on a cold start.
+  const HEARTBEAT_MS = 4 * 60 * 1000;
+  function heartbeat() { fetch('/healthz', { cache: 'no-store' }).catch(() => {}); }
+  setInterval(heartbeat, HEARTBEAT_MS);
+
+  // 3) Keep the iPad screen on while the kiosk is showing (Safari 16.4+ / iPadOS 18.4+
+  //    for home-screen apps). Re-requested whenever the app comes back to the front.
+  let wakeLock = null;
+  async function keepScreenOn() {
+    try {
+      if ('wakeLock' in navigator && document.visibilityState === 'visible' && !wakeLock) {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; });
+      }
+    } catch { wakeLock = null; }
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') { heartbeat(); keepScreenOn(); }
+  });
+
   // ---- init ----
   window.addEventListener('load', async () => {
+    keepScreenOn();
     actions.forEach(b => b.addEventListener('click', () => doAction(b.dataset.type)));
     try {
       const c = await (await fetch('/api/kiosk/config')).json();

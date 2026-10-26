@@ -273,7 +273,18 @@ app.get('/api/admin/report.csv', requireAdmin, A(async (req, res) => {
 }));
 
 // ---------- static ----------
-app.use(express.static(path.join(__dirname, 'public')));
+// The face models + face-api library (~8 MB) never change between deploys, so let
+// the iPad keep them for 30 days instead of re-downloading them on every launch.
+// Everything else (HTML/JS/CSS) is revalidated so app updates show up right away.
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders(res, filePath) {
+    if (/[\\/](models|vendor)[\\/]/.test(filePath)) {
+      res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
+    } else if (filePath.endsWith('sw.js')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  },
+}));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
 // ---------- start ----------
