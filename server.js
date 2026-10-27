@@ -312,9 +312,26 @@ async function loadOrCreateCert() {
   return { key: pems.private, cert: pems.cert };
 }
 
+// Stay awake 24/7 on Render's free plan. Render puts the app to sleep after 15
+// minutes with no incoming requests. Every 10 minutes the server calls its own
+// public address, which goes out through Render and comes back in, so it never
+// sits idle long enough to sleep, even when both iPads are off. One app awake
+// all month = at most 744 h, under Render's 750 free hours.
+// Render sets RENDER_EXTERNAL_URL automatically; locally this does nothing.
+function startSelfPing() {
+  const base = process.env.RENDER_EXTERNAL_URL;
+  if (!base) return;
+  const ping = () => fetch(base.replace(/\/$/, '') + '/healthz', { signal: AbortSignal.timeout(20000) })
+    .catch((e) => console.warn('[self-ping] failed:', e.message));
+  setInterval(ping, 10 * 60 * 1000);
+  setTimeout(ping, 60 * 1000);
+  console.log(`  Self-ping on: ${base}/healthz every 10 min (keeps the free plan awake).`);
+}
+
 function start() {
   const PORT = +(process.env.PORT || 3000);
   const ips = lanIPs();
+  startSelfPing();
 
   http.createServer(app).listen(PORT, () => {
     if (CLOUD) {

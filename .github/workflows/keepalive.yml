@@ -11,4 +11,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping the kiosk so Render does not sleep it
-        run: curl -sS --max-time 30 https://attendance-kiosk.onrender.com/healthz || true
+        run: curl -sS --max-time 90https://attendance-kiosk.onrender.com/healthz || true
